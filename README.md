@@ -215,6 +215,11 @@ it right from the sources
     $ make
     # make install
 
+Run 2bwm with Xephyr:
+
+    startx ./.xinitrc -- /usr/bin/Xephyr -screen 1200x800
+
+
 
 Troubleshooting
 ===============
