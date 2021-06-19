@@ -2968,26 +2968,39 @@ void sigcatch(const int sig) {
 void install_sig_handlers(void) {
     struct sigaction sa;
     struct sigaction sa_chld;
-    sa.sa_handler = SIG_IGN;
+
+    sa.sa_handler = SIG_IGN; /* 这里表示忽略信号 */
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_NOCLDSTOP;
-    //could not initialize signal handler
-    if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    sa.sa_flags = SA_NOCLDSTOP; /* 创建子进程信号 */
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        /* could not initialize signal handler */
         exit(-1);
+    }
+
     sa.sa_handler = sigcatch;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART; /* Restart if interrupted by handler */
-    if (sigaction(SIGINT, &sa, NULL) == -1 || sigaction(SIGHUP, &sa, NULL) == -1 || sigaction(SIGTERM, &sa, NULL) == -1)
+    if (sigaction(SIGINT, &sa, NULL) == -1 || sigaction(SIGHUP, &sa, NULL) == -1 || sigaction(SIGTERM, &sa, NULL) == -1) {
         exit(-1);
+    }
 }
 
 int main(int argc, char **argv) {
+    atexit(cleanup); /* 注册退出清理函数 */
+
+    install_sig_handlers(); /* 信号捕获设置 */
+
     int scrno = 0;
-    atexit(cleanup);
-    install_sig_handlers();
-    if (!xcb_connection_has_error(conn = xcb_connect(NULL, &scrno)))
-        if (setup(scrno))
-            run();
+
+    /* 创建 X 连接, 并检查链接错误 */
+    conn = xcb_connect(NULL, &scrno);
+    int xcb_error = xcb_connection_has_error(conn);
+
+    /* setup 设置需要监听的 X 事件, 以及相关的处理函数 */
+    if (!xcb_error && setup(scrno)) {
+        run(); /* 运行主事件循环 */
+    }
+
     /* the WM has stopped running, because sigcode is not 0 */
     exit(sigcode);
 }
