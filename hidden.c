@@ -17,11 +17,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
 #include <getopt.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
 
@@ -32,7 +32,7 @@ xcb_atom_t wm_state;
 xcb_atom_t wm_icon_name;
 
 bool printcommand = false;
-bool iconname     = false;
+bool iconname = false;
 
 static uint32_t get_wm_state(xcb_drawable_t win);
 static int findhidden(void);
@@ -41,26 +41,23 @@ static void cleanup(void);
 static xcb_atom_t getatom(char *atom_name);
 static void printhelp(void);
 
-uint32_t get_wm_state(xcb_drawable_t win)
-{
+uint32_t get_wm_state(xcb_drawable_t win) {
     xcb_get_property_reply_t *reply;
     xcb_get_property_cookie_t cookie;
     uint32_t *statep;
     uint32_t state = 0;
 
     cookie = xcb_get_property(conn, false, win, wm_state, wm_state, 0,
-                              sizeof (int32_t));
+                              sizeof(int32_t));
 
     reply = xcb_get_property_reply(conn, cookie, NULL);
-    if (NULL == reply)
-    {
+    if (NULL == reply) {
         fprintf(stderr, "mcwm: Couldn't get properties for win %d\n", win);
         return -1;
     }
 
     /* Length is 0 if we didn't find it. */
-    if (0 == xcb_get_property_value_length(reply))
-    {
+    if (0 == xcb_get_property_value_length(reply)) {
         goto bad;
     }
 
@@ -76,8 +73,7 @@ bad:
  * List all hidden windows.
  *
  */
-int findhidden(void)
-{
+int findhidden(void) {
     xcb_query_tree_reply_t *reply;
     int i;
     int len;
@@ -91,8 +87,7 @@ int findhidden(void)
     /* Get all children. */
     reply = xcb_query_tree_reply(conn,
                                  xcb_query_tree(conn, screen->root), 0);
-    if (NULL == reply)
-    {
+    if (NULL == reply) {
         return -1;
     }
 
@@ -100,13 +95,11 @@ int findhidden(void)
     children = xcb_query_tree_children(reply);
 
     /* List all hidden windows on this root. */
-    for (i = 0; i < len; i ++)
-    {
+    for (i = 0; i < len; i++) {
         attr = xcb_get_window_attributes_reply(
             conn, xcb_get_window_attributes(conn, children[i]), NULL);
 
-        if (!attr)
-        {
+        if (!attr) {
             fprintf(stderr, "Couldn't get attributes for window %d.",
                     children[i]);
             continue;
@@ -119,11 +112,9 @@ int findhidden(void)
          * with a MapRequest if we had been running, so in the
          * normal case we wouldn't have seen them.
          */
-        if (!attr->override_redirect)
-        {
+        if (!attr->override_redirect) {
             state = get_wm_state(children[i]);
-            if (state == XCB_ICCCM_WM_STATE_ICONIC)
-            {
+            if (state == XCB_ICCCM_WM_STATE_ICONIC) {
                 uint8_t rc = 1;
                 /*
                  * Example names:
@@ -133,47 +124,39 @@ int findhidden(void)
                  * _NET_WM_NAME(UTF8_STRING) = 0x75, 0x72, 0x78, 0x76,
                  * 0x74 WM_NAME(STRING) = "urxvt"
                  */
-                if (false == iconname)
-                {
-                   cookie = xcb_icccm_get_wm_name(conn, children[i]);
-                   rc = xcb_icccm_get_wm_name_reply(conn, cookie, &prop, &error);
+                if (false == iconname) {
+                    cookie = xcb_icccm_get_wm_name(conn, children[i]);
+                    rc = xcb_icccm_get_wm_name_reply(conn, cookie, &prop, &error);
                 }
 
-                if ((true == iconname) || (1 != rc))
-                {
-                   /*
+                if ((true == iconname) || (1 != rc)) {
+                    /*
                     * get wm name request failed. Try to grab
                     * the icon name just in case that works
                     */
-                   cookie = xcb_icccm_get_wm_icon_name(conn, children[i]);
-                   rc = xcb_icccm_get_wm_icon_name_reply(conn, cookie, &prop, &error);
+                    cookie = xcb_icccm_get_wm_icon_name(conn, children[i]);
+                    rc = xcb_icccm_get_wm_icon_name_reply(conn, cookie, &prop, &error);
                 }
 
-                if (1 == rc)
-                {
-                  prop.name[prop.name_len] = '\0';
-                }
-                else
-                {
-                   /*
+                if (1 == rc) {
+                    prop.name[prop.name_len] = '\0';
+                } else {
+                    /*
                     * get_wm_icon_name_reply returned an error, so prop
                     * doesn't point to valid memory. At best it points
                     * to the last successful request
                     */
-                  fprintf(stderr, "Couldn't get name for window %d.",
-                          children[i]);
+                    fprintf(stderr, "Couldn't get name for window %d.",
+                            children[i]);
                 }
 
-                if (printcommand)
-                {
+                if (printcommand) {
                     /* FIXME: Need to escape : in prop.name. */
                     printf("'%s':'xdotool windowactivate 0x%x windowraise 0x%x'\n",
-                           (1 == rc)?prop.name:"(unamed)",
+                           (1 == rc) ? prop.name : "(unamed)",
                            children[i], children[i]);
-                }
-                else
-                {
-                    puts((1 == rc)?prop.name:"(unamed)");
+                } else {
+                    puts((1 == rc) ? prop.name : "(unamed)");
                 }
             }
         } /* if not override redirect */
@@ -186,53 +169,46 @@ int findhidden(void)
     return 0;
 }
 
-void init(void)
-{
+void init(void) {
     int scrno;
     xcb_screen_iterator_t iter;
 
     conn = xcb_connect(NULL, &scrno);
-    if (!conn)
-    {
+    if (!conn) {
         fprintf(stderr, "can't connect to an X server\n");
         exit(1);
     }
 
     iter = xcb_setup_roots_iterator(xcb_get_setup(conn));
 
-    for (int i = 0; i < scrno; ++i)
-    {
+    for (int i = 0; i < scrno; ++i) {
         xcb_screen_next(&iter);
     }
 
     screen = iter.data;
 
-    if (!screen)
-    {
+    if (!screen) {
         fprintf(stderr, "can't get the current screen\n");
         xcb_disconnect(conn);
         exit(1);
     }
 }
 
-void cleanup(void)
-{
+void cleanup(void) {
     xcb_disconnect(conn);
 }
 
 /*
  * Get a defined atom from the X server.
  */
-xcb_atom_t getatom(char *atom_name)
-{
+xcb_atom_t getatom(char *atom_name) {
     xcb_intern_atom_cookie_t atom_cookie;
     xcb_atom_t atom;
     xcb_intern_atom_reply_t *rep;
 
     atom_cookie = xcb_intern_atom(conn, 0, strlen(atom_name), atom_name);
     rep = xcb_intern_atom_reply(conn, atom_cookie, NULL);
-    if (NULL != rep)
-    {
+    if (NULL != rep) {
         atom = rep->atom;
         free(rep);
         return atom;
@@ -245,40 +221,35 @@ xcb_atom_t getatom(char *atom_name)
     return 0;
 }
 
-void printhelp(void)
-{
+void printhelp(void) {
     printf("hidden: Usage: hidden [-c] [-i]\n");
     printf("  -c print 9menu/xdotool compatible output.\n");
     printf("  -i print icon name instead of window name.\n");
 }
 
-int main(int argc, char **argv)
-{
-    int ch;                     /* Option character */
+int main(int argc, char **argv) {
+    int ch; /* Option character */
 
-    while (1)
-    {
+    while (1) {
         ch = getopt(argc, argv, "ci");
-        if (-1 == ch)
-        {
+        if (-1 == ch) {
             /* No more options, break out of while loop. */
             break;
         }
-        switch (ch)
-        {
-        case 'c':
-            printcommand = true;
-            break;
+        switch (ch) {
+            case 'c':
+                printcommand = true;
+                break;
 
-        case 'i':
-            iconname = true;
-            break;
+            case 'i':
+                iconname = true;
+                break;
 
-        default:
-            printhelp();
-            exit(0);
+            default:
+                printhelp();
+                exit(0);
         } /* switch ch */
-    } /* while 1 */
+    }     /* while 1 */
 
     init();
     wm_state = getatom("_NET_WM_STATE");
