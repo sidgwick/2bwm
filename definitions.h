@@ -1,4 +1,4 @@
-#define WORKSPACES 10
+#define WORKSPACES 10 /* 10 个桌面 */
 #define BUTTONMASK XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE
 #define NET_WM_FIXED 0xffffffff  // Value in WM hint which means this window is fixed on all workspaces.
 #define TWOBWM_NOWS 0xfffffffe   // This means we didn't get any window hint at all.
@@ -9,8 +9,11 @@
 #define ALT XCB_MOD_MASK_1           /* ALT key */
 #define SHIFT XCB_MOD_MASK_SHIFT     /* Shift key */
 
-enum { TWOBWM_MOVE,
-       TWOBWM_RESIZE };
+enum {
+           TWOBWM_MOVE,
+      TWOBWM_RESIZE
+};
+
 enum { TWOBWM_FOCUS_NEXT,
        TWOBWM_FOCUS_PREVIOUS };
 enum { TWOBWM_RESIZE_LEFT,
