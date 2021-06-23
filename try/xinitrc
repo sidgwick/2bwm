@@ -1,0 +1,4 @@
+./2bwm &
+exec echo "HELLO" | lemonbar &
+exec plank &
+exec alacritty
