@@ -192,13 +192,11 @@ void changeworkspace(const Arg *arg) {
 }
 
 void nextworkspace() {
-    curws == WORKSPACES - 1 ? changeworkspace_helper(0)
-        : changeworkspace_helper(curws + 1);
+    curws == WORKSPACES - 1 ? changeworkspace_helper(0) : changeworkspace_helper(curws + 1);
 }
 
 void prevworkspace() {
-    curws > 0 ? changeworkspace_helper(curws - 1)
-        : changeworkspace_helper(WORKSPACES - 1);
+    curws > 0 ? changeworkspace_helper(curws - 1) : changeworkspace_helper(WORKSPACES - 1);
 }
 
 void twobwm_exit() {
@@ -821,8 +819,7 @@ void newwin(xcb_generic_event_t *ev) {
 }
 
 /* Set border colour, width and event mask for window. */
-struct client *
-setupwin(xcb_window_t win) {
+struct client *setupwin(xcb_window_t win) {
     unsigned int i;
     uint8_t result;
     uint32_t values[2], ws;
@@ -845,6 +842,7 @@ setupwin(xcb_window_t win) {
         }
         xcb_ewmh_get_atoms_reply_wipe(&win_type);
     }
+
     values[0] = XCB_EVENT_MASK_ENTER_WINDOW;
     xcb_change_window_attributes(conn, win, XCB_CW_BACK_PIXEL, &conf.empty_col);
     xcb_change_window_attributes_checked(conn, win, XCB_CW_EVENT_MASK, values);
@@ -1093,10 +1091,12 @@ bool setupscreen(void) {
         if (NULL != attr)
             free(attr);
     }
+
     changeworkspace_helper(0);
 
-    if (NULL != reply)
+    if (NULL != reply) {
         free(reply);
+    }
 
     return true;
 }
