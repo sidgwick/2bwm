@@ -49,12 +49,14 @@ static xcb_drawable_t top_win = 0;   // Window always on top.
 static struct item *winlist = NULL;  // Global list of all client windows.
 static struct item *monlist = NULL;  // List of all physical monitor outputs.
 static struct item *wslist[WORKSPACES];
+
 ///---Global configuration.---///
 static const char *atomnames[NB_ATOMS][1] = {
     {"WM_DELETE_WINDOW"},
     {"WM_CHANGE_STATE"}};
 
 xcb_atom_t ATOM[NB_ATOMS];
+
 ///---Functions prototypes---///
 static void run(void);
 static bool setup(int);
@@ -193,12 +195,12 @@ void changeworkspace(const Arg *arg) {
 
 void nextworkspace() {
     curws == WORKSPACES - 1 ? changeworkspace_helper(0)
-        : changeworkspace_helper(curws + 1);
+                            : changeworkspace_helper(curws + 1);
 }
 
 void prevworkspace() {
     curws > 0 ? changeworkspace_helper(curws - 1)
-        : changeworkspace_helper(WORKSPACES - 1);
+              : changeworkspace_helper(WORKSPACES - 1);
 }
 
 void twobwm_exit() {
@@ -218,18 +220,18 @@ void centerpointer(xcb_drawable_t win, struct client *cl) {
     cur_x = cur_y = 0;
 
     switch (CURSOR_POSITION) {
-    case BOTTOM_RIGHT:
-        cur_x += cl->width;
-    case BOTTOM_LEFT:
-        cur_y += cl->height;
-        break;
-    case TOP_RIGHT:
-        cur_x += cl->width;
-    case TOP_LEFT:
-        break;
-    default:
-        cur_x = cl->width / 2;
-        cur_y = cl->height / 2;
+        case BOTTOM_RIGHT:
+            cur_x += cl->width;
+        case BOTTOM_LEFT:
+            cur_y += cl->height;
+            break;
+        case TOP_RIGHT:
+            cur_x += cl->width;
+        case TOP_LEFT:
+            break;
+        default:
+            cur_x = cl->width / 2;
+            cur_y = cl->height / 2;
     }
 
     xcb_warp_pointer(conn, XCB_NONE, win, 0, 0, 0, 0, cur_x, cur_y);
@@ -605,9 +607,11 @@ void forgetwin(xcb_window_t win) {
     }
 }
 
+/* 这个函数用来获取 monitor 的坐标信息和宽高数据 */
 void getmonsize(int8_t with_offsets, int16_t *mon_x, int16_t *mon_y,
                 uint16_t *mon_width, uint16_t *mon_height,
                 const struct client *client) {
+
     if (NULL == client || NULL == client->monitor) {
         /* Window isn't attached to any monitor, so we use
          * the root window size. */
@@ -642,8 +646,8 @@ void noborder(int16_t *temp, struct client *client, bool set_unset) {
     }
 }
 
-void maximize_helper(struct client *client, uint16_t mon_x, uint16_t mon_y,
-                     uint16_t mon_width, uint16_t mon_height) {
+/* 根据 monitor 的大小, 将窗口最大化 */
+void maximize_helper(struct client *client, uint16_t mon_x, uint16_t mon_y, uint16_t mon_width, uint16_t mon_height) {
     uint32_t values[4];
 
     values[0] = 0;
@@ -967,7 +971,7 @@ void grabkeys(void) {
                 xcb_grab_key(conn, 1, screen->root, keys[i].mod | modifiers[m], keycode[k],
                              XCB_GRAB_MODE_ASYNC,  //pointer mode
                              XCB_GRAB_MODE_ASYNC   //keyboard mode
-                            );
+                );
             }
         }
 
@@ -1101,19 +1105,21 @@ bool setupscreen(void) {
     return true;
 }
 
-/* Set up RANDR extension. Get the extension base and subscribe to events */
+/* Set up RANDR extension. Get the extension base and subscribe to events
+ * randr 是 X 里面支持多显示器的扩展 */
 int setuprandr(void) {
     int base;
     const xcb_query_extension_reply_t *extension = xcb_get_extension_data(conn, &xcb_randr_id);
 
-    if (!extension->present)
+    if (!extension->present) {
         return -1;
-    else
+    } else {
         getrandr();
+    }
 
     base = extension->first_event;
-    xcb_randr_select_input(conn, screen->root,
-                           XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE | XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY);
+    uint16_t enable = XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE | XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY;
+    xcb_randr_select_input(conn, screen->root, enable);
 
     return base;
 }
@@ -1122,11 +1128,11 @@ int setuprandr(void) {
 void getrandr(void) {
     int len;
     xcb_randr_get_screen_resources_current_cookie_t rcookie = xcb_randr_get_screen_resources_current(conn, screen->root);
-    xcb_randr_get_screen_resources_current_reply_t *res = xcb_randr_get_screen_resources_current_reply(conn, rcookie,
-                                                                                                       NULL);
+    xcb_randr_get_screen_resources_current_reply_t *res = xcb_randr_get_screen_resources_current_reply(conn, rcookie, NULL);
 
-    if (NULL == res)
+    if (NULL == res) {
         return;
+    }
 
     xcb_timestamp_t timestamp = res->config_timestamp;
     len = xcb_randr_get_screen_resources_current_outputs_length(res);
@@ -1138,8 +1144,7 @@ void getrandr(void) {
 }
 
 /* Walk through all the RANDR outputs (number of outputs == len) there */
-void getoutputs(xcb_randr_output_t *outputs, const int len,
-                xcb_timestamp_t timestamp) {
+void getoutputs(xcb_randr_output_t *outputs, const int len, xcb_timestamp_t timestamp) {
     int i;
     int name_len;
     char *name;
@@ -1191,18 +1196,18 @@ void getoutputs(xcb_randr_output_t *outputs, const int len,
                 /* We know this monitor. Update information.
                  * If it's smaller than before, rearrange windows. */
                 if (crtc->x != mon->x || crtc->y != mon->y || crtc->width != mon->width || crtc->height != mon->height) {
-                    if (crtc->x != mon->x)
-                        mon->x = crtc->x;
-                    if (crtc->y != mon->y)
-                        mon->y = crtc->y;
-                    if (crtc->width != mon->width)
-                        mon->width = crtc->width;
-                    if (crtc->height != mon->height)
-                        mon->height = crtc->height;
+                if (crtc->x != mon->x)
+                    mon->x = crtc->x;
+                if (crtc->y != mon->y)
+                    mon->y = crtc->y;
+                if (crtc->width != mon->width)
+                    mon->width = crtc->width;
+                if (crtc->height != mon->height)
+                    mon->height = crtc->height;
 
-                    // TODO when lid closed, one screen
-                    arrbymon(mon);
-                }
+                // TODO when lid closed, one screen
+                arrbymon(mon);
+            }
             free(crtc);
         } else {
             /* Check if it was used before. If it was, do something. */
@@ -1322,8 +1327,9 @@ addmonitor(xcb_randr_output_t id, const int16_t x, const int16_t y,
 void raisewindow(xcb_drawable_t win) {
     uint32_t values[] = {XCB_STACK_MODE_ABOVE};
 
-    if (screen->root == win || 0 == win)
+    if (screen->root == win || 0 == win) {
         return;
+    }
 
     xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
     xcb_flush(conn);
@@ -1337,8 +1343,7 @@ void raiseorlower() {
     if (NULL == focuswin)
         return;
 
-    xcb_configure_window(conn, focuswin->id, XCB_CONFIG_WINDOW_STACK_MODE,
-                         values);
+    xcb_configure_window(conn, focuswin->id, XCB_CONFIG_WINDOW_STACK_MODE, values);
 
     xcb_flush(conn);
 }
@@ -1528,12 +1533,12 @@ void resizelim(struct client *client) {
     noborder(&temp, client, false);
 }
 
-void moveresize(xcb_drawable_t win, const uint16_t x, const uint16_t y,
-                const uint16_t width, const uint16_t height) {
+void moveresize(xcb_drawable_t win, const uint16_t x, const uint16_t y, const uint16_t width, const uint16_t height) {
     uint32_t values[4] = {x, y, width, height};
 
-    if (screen->root == win || 0 == win)
+    if (screen->root == win || 0 == win) {
         return;
+    }
 
     xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
 
@@ -1560,7 +1565,7 @@ void resizestep(const Arg *arg) {
         return;
 
     arg->i < 4 ? (stepx = stepy = movements[1])
-        : (stepx = stepy = movements[0]);
+               : (stepx = stepy = movements[0]);
 
     if (focuswin->width_inc > 7 && focuswin->height_inc > 7) {
         /* we were given a resize hint by the window so use it */
@@ -1681,24 +1686,27 @@ void movestep(const Arg *arg) {
     int16_t start_x, start_y;
     uint8_t step, cases = arg->i;
 
-    if (NULL == focuswin || focuswin->maxed)
+    if (NULL == focuswin || focuswin->maxed) {
         return;
+    }
 
     /* Save pointer position so we can warp pointer here later. */
-    if (!getpointer(&focuswin->id, &start_x, &start_y))
+    if (!getpointer(&focuswin->id, &start_x, &start_y)) {
         return;
+    }
 
     cases = cases % 4;
     arg->i < 4 ? (step = movements[1]) : (step = movements[0]);
 
-    if (cases == TWOBWM_MOVE_LEFT)
+    if (cases == TWOBWM_MOVE_LEFT) {
         focuswin->x = focuswin->x - step;
-    else if (cases == TWOBWM_MOVE_DOWN)
+    } else if (cases == TWOBWM_MOVE_DOWN) {
         focuswin->y = focuswin->y + step;
-    else if (cases == TWOBWM_MOVE_UP)
+    } else if (cases == TWOBWM_MOVE_UP) {
         focuswin->y = focuswin->y - step;
-    else if (cases == TWOBWM_MOVE_RIGHT)
+    } else if (cases == TWOBWM_MOVE_RIGHT) {
         focuswin->x = focuswin->x + step;
+    }
 
     raise_current_window();
     movelim(focuswin);
@@ -1711,57 +1719,39 @@ void setborders(struct client *client, const bool isitfocused) {
     uint16_t half = 0;
     bool inv = conf.inverted_colors;
 
-    if (client->maxed || client->ignore_borders)
+    if (client->maxed || client->ignore_borders) {
         return;
+    }
 
     /* Set border width. */
     values[0] = conf.borderwidth;
-    xcb_configure_window(conn, client->id,
-                         XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
+    xcb_configure_window(conn, client->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
 
-    if (top_win != 0 && client->id == top_win)
+    if (top_win != 0 && client->id == top_win) {
         inv = !inv;
+    }
 
     half = conf.outer_border;
 
+    /* TODO: 有人可以解释一下这个吗? */
     xcb_rectangle_t rect_inner[] = {
-        {client->width,
-            0,
-            conf.borderwidth - half, client->height + conf.borderwidth - half},
-        {client->width + conf.borderwidth + half,
-            0,
-            conf.borderwidth - half,
-            client->height + conf.borderwidth - half},
-        {0,
-            client->height,
-            client->width + conf.borderwidth - half, conf.borderwidth - half},
-        {0,
-            client->height + conf.borderwidth + half, client->width + conf.borderwidth - half, conf.borderwidth - half},
-        {client->width + conf.borderwidth + half, conf.borderwidth + client->height + half, conf.borderwidth,
-            conf.borderwidth}};
+        {client->width, 0, conf.borderwidth - half, client->height + conf.borderwidth - half},
+        {client->width + conf.borderwidth + half, 0, conf.borderwidth - half, client->height + conf.borderwidth - half},
+        {0, client->height, client->width + conf.borderwidth - half, conf.borderwidth - half},
+        {0, client->height + conf.borderwidth + half, client->width + conf.borderwidth - half, conf.borderwidth - half},
+        {client->width + conf.borderwidth + half, conf.borderwidth + client->height + half, conf.borderwidth, conf.borderwidth}
+    };
 
     xcb_rectangle_t rect_outer[] = {
-        {client->width + conf.borderwidth - half,
-            0,
-            half,
-            client->height + conf.borderwidth * 2},
-        {client->width + conf.borderwidth,
-            0,
-            half,
-            client->height + conf.borderwidth * 2},
-        {0,
-            client->height + conf.borderwidth - half, client->width + conf.borderwidth * 2,
-            half},
-        {0,
-            client->height + conf.borderwidth,
-            client->width + conf.borderwidth * 2,
-            half},
-        {1, 1, 1, 1}};
+        {client->width + conf.borderwidth - half, 0, half, client->height + conf.borderwidth * 2},
+        {client->width + conf.borderwidth, 0, half, client->height + conf.borderwidth * 2},
+        {0, client->height + conf.borderwidth - half, client->width + conf.borderwidth * 2, half},
+        {0, client->height + conf.borderwidth, client->width + conf.borderwidth * 2, half},
+        {1, 1, 1, 1}
+    };
 
     xcb_pixmap_t pmap = xcb_generate_id(conn);
-    xcb_create_pixmap(conn, client->depth, pmap, client->id,
-                      client->width + (conf.borderwidth * 2),
-                      client->height + (conf.borderwidth * 2));
+    xcb_create_pixmap(conn, client->depth, pmap, client->id, client->width + (conf.borderwidth * 2), client->height + (conf.borderwidth * 2));
 
     xcb_gcontext_t gc = xcb_generate_id(conn);
     xcb_create_gc(conn, gc, pmap, 0, NULL);
@@ -1778,13 +1768,15 @@ void setborders(struct client *client, const bool isitfocused) {
 
     values[0] = conf.outer_border_col;
 
+    /* 对不可杀/固定窗口的边框颜色处理 */
     if (client->unkillable || client->fixed) {
-        if (client->unkillable && client->fixed)
+        if (client->unkillable && client->fixed) {
             values[0] = conf.fixed_unkil_col;
-        else if (client->fixed)
+        } else if (client->fixed) {
             values[0] = conf.fixedcol;
-        else
+        } else {
             values[0] = conf.unkillcol;
+        }
     }
 
     xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, &values[0]);
@@ -1792,14 +1784,18 @@ void setborders(struct client *client, const bool isitfocused) {
 
     values[0] = conf.focuscol;
 
-    if (!isitfocused)
+    if (!isitfocused) {
         values[0] = conf.unfocuscol;
+    }
 
     xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, &values[0]);
     xcb_poly_fill_rectangle(conn, pmap, gc, 5, rect_inner);
+
+    // 上面全是在画边框.
+    // 这里开始真正为窗口设置边框
+
     values[0] = pmap;
-    xcb_change_window_attributes(conn, client->id, XCB_CW_BORDER_PIXMAP,
-                                 &values[0]);
+    xcb_change_window_attributes(conn, client->id, XCB_CW_BORDER_PIXMAP, &values[0]);
 
     /* free the memory we allocated for the pixmap */
     xcb_free_pixmap(conn, pmap);
@@ -1807,11 +1803,13 @@ void setborders(struct client *client, const bool isitfocused) {
     xcb_flush(conn);
 }
 
+/* 从最大化窗口恢复正常(原始)大小 */
 void unmax(struct client *client) {
     uint32_t values[5], mask = 0;
 
-    if (NULL == client)
+    if (NULL == client) {
         return;
+    }
 
     client->x = client->origsize.x;
     client->y = client->origsize.y;
@@ -1825,13 +1823,13 @@ void unmax(struct client *client) {
     values[3] = client->height;
 
     client->maxed = client->hormaxed = 0;
-    moveresize(client->id, client->x, client->y,
-               client->width, client->height);
+    moveresize(client->id, client->x, client->y, client->width, client->height);
 
     centerpointer(client->id, client);
     setborders(client, true);
 }
 
+/* TODO: maximize, fullscreen 有啥区别? */
 void maximize(const Arg *arg) {
     maxwin(focuswin, 1);
 }
@@ -1844,17 +1842,20 @@ void unmaxwin(struct client *client) {
     unmax(client);
     client->maxed = false;
     setborders(client, true);
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id,
-                        ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 0, NULL);
+
+    /* TODO: 深入了解 EWMH 标准 */
+    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id, ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 0, NULL);
 }
 
+/* 最大化窗口 */
 void maxwin(struct client *client, uint8_t with_offsets) {
     uint32_t values[4];
     int16_t mon_x, mon_y;
     int16_t mon_width, mon_height;
 
-    if (NULL == focuswin)
+    if (NULL == focuswin) {
         return;
+    }
 
     /* Check if maximized already. If so, revert to stored geometry. */
     if (focuswin->maxed) {
@@ -1866,12 +1867,13 @@ void maxwin(struct client *client, uint8_t with_offsets) {
     maximize_helper(client, mon_x, mon_y, mon_width, mon_height);
     raise_current_window();
     if (!with_offsets) {
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id,
-                            ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
+        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id, ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
     }
+
     xcb_flush(conn);
 }
 
+/* TODO: to be continue */
 void maxvert_hor(const Arg *arg) {
     uint32_t values[2];
     int16_t mon_y, mon_x, temp = 0;
@@ -1987,8 +1989,7 @@ void hide(void) {
     long data[] = {
         XCB_ICCCM_WM_STATE_ICONIC,
         ewmh->_NET_WM_STATE_HIDDEN,
-        XCB_NONE
-    };
+        XCB_NONE};
 
     /* Unmap window and declare iconic. Unmapping will generate an
      * UnmapNotify event so we can forget about the window later. */
@@ -2014,8 +2015,7 @@ bool getpointer(const xcb_drawable_t *win, int16_t *x, int16_t *y) {
 }
 
 bool getgeom(const xcb_drawable_t *win, int16_t *x, int16_t *y, uint16_t *width, uint16_t *height, uint8_t *depth) {
-    xcb_get_geometry_reply_t *geom = xcb_get_geometry_reply(conn,
-                                                            xcb_get_geometry(conn, *win), NULL);
+    xcb_get_geometry_reply_t *geom = xcb_get_geometry_reply(conn, xcb_get_geometry(conn, *win), NULL);
 
     if (NULL == geom)
         return false;
@@ -2039,6 +2039,7 @@ void teleport(const Arg *arg) {
 
     if (!getpointer(&focuswin->id, &pointx, &pointy))
         return;
+
     uint16_t tmp_x = focuswin->x;
     uint16_t tmp_y = focuswin->y;
 
@@ -2074,11 +2075,11 @@ void teleport(const Arg *arg) {
                     focuswin->x = focuswin->x / 2;
                 } else
                     focuswin->x += mon_width - (focuswin->width + conf.borderwidth * 2);
-                else {
-                    /* bottom-right */
-                    focuswin->x += mon_width - (focuswin->width + conf.borderwidth * 2);
-                    focuswin->y += mon_height - (focuswin->height + conf.borderwidth * 2);
-                }
+            else {
+                /* bottom-right */
+                focuswin->x += mon_width - (focuswin->width + conf.borderwidth * 2);
+                focuswin->y += mon_height - (focuswin->height + conf.borderwidth * 2);
+            }
         }
     }
 
@@ -2113,13 +2114,10 @@ void deletewin() {
                     .sequence = 0,
                     .window = focuswin->id,
                     .type = ewmh->WM_PROTOCOLS,
-                    .data.data32 = {
-                        ATOM[wm_delete_window],
-                        XCB_CURRENT_TIME}};
+                    .data.data32 = {ATOM[wm_delete_window], XCB_CURRENT_TIME}
+                };
 
-                xcb_send_event(conn, false, focuswin->id,
-                               XCB_EVENT_MASK_NO_EVENT,
-                               (char *)&ev);
+                xcb_send_event(conn, false, focuswin->id, XCB_EVENT_MASK_NO_EVENT, (char *)&ev);
 
                 use_delete = true;
                 break;
@@ -2127,7 +2125,10 @@ void deletewin() {
 
         xcb_icccm_get_wm_protocols_reply_wipe(&protocols);
     }
-    if (!use_delete) xcb_kill_client(conn, focuswin->id);
+
+    if (!use_delete) {
+        xcb_kill_client(conn, focuswin->id);
+    }
 }
 
 void changescreen(const Arg *arg) {
@@ -2167,17 +2168,13 @@ void cursor_move(const Arg *arg) {
     arg->i < 4 ? (speed = movements[3]) : (speed = movements[2]);
 
     if (cases == TWOBWM_CURSOR_UP)
-        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE,
-                         0, 0, 0, 0, 0, -speed);
+        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, 0, -speed);
     else if (cases == TWOBWM_CURSOR_DOWN)
-        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE,
-                         0, 0, 0, 0, 0, speed);
+        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, 0, speed);
     else if (cases == TWOBWM_CURSOR_RIGHT)
-        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE,
-                         0, 0, 0, 0, speed, 0);
+        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, speed, 0);
     else if (cases == TWOBWM_CURSOR_LEFT)
-        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE,
-                         0, 0, 0, 0, -speed, 0);
+        xcb_warp_pointer(conn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, -speed, 0);
 
     xcb_flush(conn);
 }
@@ -2297,14 +2294,12 @@ void configurerequest(xcb_generic_event_t *ev) {
          * configuration? Do we want to? */
         if (e->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
             values[0] = e->sibling;
-            xcb_configure_window(conn, e->window,
-                                 XCB_CONFIG_WINDOW_SIBLING, values);
+            xcb_configure_window(conn, e->window, XCB_CONFIG_WINDOW_SIBLING, values);
         }
 
         if (e->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
             values[0] = e->stack_mode;
-            xcb_configure_window(conn, e->window,
-                                 XCB_CONFIG_WINDOW_STACK_MODE, values);
+            xcb_configure_window(conn, e->window, XCB_CONFIG_WINDOW_STACK_MODE, values);
         }
 
         /* Check if window fits on screen after resizing. */
@@ -2334,8 +2329,7 @@ xcb_cursor_t Create_Font_Cursor(xcb_connection_t *conn, uint16_t glyph) {
     cursor_font = xcb_generate_id(conn);
     xcb_open_font(conn, cursor_font, strlen("cursor"), "cursor");
     xcb_cursor_t cursor = xcb_generate_id(conn);
-    xcb_create_glyph_cursor(conn, cursor, cursor_font, cursor_font, glyph,
-                            glyph + 1, 0x3232, 0x3232, 0x3232, 0xeeee, 0xeeee, 0xeeec);
+    xcb_create_glyph_cursor(conn, cursor, cursor_font, cursor_font, glyph, glyph + 1, 0x3232, 0x3232, 0x3232, 0xeeee, 0xeeee, 0xeeec);
 
     return cursor;
 }
@@ -2453,36 +2447,32 @@ static void mousemotion(const Arg *arg) {
             xcb_flush(conn);
 
         switch (e->response_type & ~0x80) {
-        case XCB_CONFIGURE_REQUEST:
-        case XCB_MAP_REQUEST:
-            events[e->response_type & ~0x80](e);
-            break;
-        case XCB_MOTION_NOTIFY:
-            ev = (xcb_motion_notify_event_t *)e;
-            if (arg->i == TWOBWM_MOVE)
-                mousemove(winx + ev->root_x - mx,
-                          winy + ev->root_y - my);
-            else
-                mouseresize(&example, winw + ev->root_x - mx,
-                            winh + ev->root_y - my);
-
-            xcb_flush(conn);
-            break;
-        case XCB_KEY_PRESS:
-        case XCB_KEY_RELEASE:
-        case XCB_BUTTON_PRESS:
-        case XCB_BUTTON_RELEASE:
-            if (arg->i == TWOBWM_RESIZE) {
+            case XCB_CONFIGURE_REQUEST:
+            case XCB_MAP_REQUEST:
+                events[e->response_type & ~0x80](e);
+                break;
+            case XCB_MOTION_NOTIFY:
                 ev = (xcb_motion_notify_event_t *)e;
+                if (arg->i == TWOBWM_MOVE) {
+                    mousemove(winx + ev->root_x - mx, winy + ev->root_y - my);
+                } else {
+                    mouseresize(&example, winw + ev->root_x - mx, winh + ev->root_y - my);
+                }
 
-                mouseresize(focuswin, winw + ev->root_x - mx,
-                            winh + ev->root_y - my);
+                xcb_flush(conn);
+                break;
+            case XCB_KEY_PRESS:
+            case XCB_KEY_RELEASE:
+            case XCB_BUTTON_PRESS:
+            case XCB_BUTTON_RELEASE:
+                if (arg->i == TWOBWM_RESIZE) {
+                    ev = (xcb_motion_notify_event_t *)e;
+                    mouseresize(focuswin, winw + ev->root_x - mx, winh + ev->root_y - my);
+                    setborders(focuswin, true);
+                }
 
-                setborders(focuswin, true);
-            }
-
-            ungrab = true;
-            break;
+                ungrab = true;
+                break;
         }
     } while (!ungrab && focuswin != NULL);
 
@@ -2491,8 +2481,9 @@ static void mousemotion(const Arg *arg) {
     xcb_free_cursor(conn, cursor);
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 
-    if (arg->i == TWOBWM_RESIZE)
+    if (arg->i == TWOBWM_RESIZE) {
         xcb_unmap_window(conn, example.id);
+    }
 
     xcb_flush(conn);
 }
@@ -2507,12 +2498,14 @@ void buttonpress(xcb_generic_event_t *ev) {
         if (NULL != focuswin && e->event == focuswin->id) {
             return;
         }
+
         client = findclient(&e->event);
         if (NULL != client) {
             setfocus(client);
             raisewindow(client->id);
             setborders(client, true);
         }
+
         return;
     }
 
@@ -2521,8 +2514,9 @@ void buttonpress(xcb_generic_event_t *ev) {
             if ((focuswin == NULL) && buttons[i].func == mousemotion)
                 return;
             if (buttons[i].root_only) {
-                if (e->event == e->root && e->child == 0)
+                if (e->event == e->root && e->child == 0) {
                     buttons[i].func(&(buttons[i].arg));
+                }
             } else {
                 buttons[i].func(&(buttons[i].arg));
             }
@@ -2561,21 +2555,21 @@ void clientmessage(xcb_generic_event_t *ev) {
             return;
         if (e->data.data32[1] == ewmh->_NET_WM_STATE_FULLSCREEN || e->data.data32[2] == ewmh->_NET_WM_STATE_FULLSCREEN) {
             switch (e->data.data32[0]) {
-            case XCB_EWMH_WM_STATE_REMOVE:
-                unmaxwin(cl);
-                break;
-            case XCB_EWMH_WM_STATE_ADD:
-                maxwin(cl, false);
-                break;
-            case XCB_EWMH_WM_STATE_TOGGLE:
-                if (cl->maxed)
+                case XCB_EWMH_WM_STATE_REMOVE:
                     unmaxwin(cl);
-                else
+                    break;
+                case XCB_EWMH_WM_STATE_ADD:
                     maxwin(cl, false);
-                break;
+                    break;
+                case XCB_EWMH_WM_STATE_TOGGLE:
+                    if (cl->maxed)
+                        unmaxwin(cl);
+                    else
+                        maxwin(cl, false);
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
             }
         }
     } else if (e->type == ewmh->_NET_WM_DESKTOP && e->format == 32) {
@@ -2797,11 +2791,7 @@ xcb_atom_t getatom(const char *atom_name) {
 
 /* set the given client to listen to button events (presses / releases) */
 void grabbuttons(struct client *c) {
-    unsigned int modifiers[] = {
-        0,
-        XCB_MOD_MASK_LOCK,
-        numlockmask,
-        numlockmask | XCB_MOD_MASK_LOCK};
+    unsigned int modifiers[] = {0, XCB_MOD_MASK_LOCK, numlockmask, numlockmask | XCB_MOD_MASK_LOCK};
 
     for (unsigned int b = 0; b < LENGTH(buttons); b++)
         if (!buttons[b].root_only) {
@@ -2821,14 +2811,12 @@ void grabbuttons(struct client *c) {
      * though the name is counter-intuitive to the method
      */
     for (unsigned int m = 0; m < LENGTH(modifiers); m++) {
-        xcb_ungrab_button(conn,
-                          XCB_BUTTON_INDEX_1,
-                          c->id,
-                          modifiers[m]);
+        xcb_ungrab_button(conn, XCB_BUTTON_INDEX_1, c->id, modifiers[m]);
     }
 }
 
-/* 初始化 Extended Window Manager Hints */
+/* 初始化 Extended Window Manager Hints
+ * xcb_ewmh_connection_t 是 xcb_connection_t 的包装, 附加了一些 EWMH 信息 */
 void ewmh_init(void) {
     if (!(ewmh = calloc(1, sizeof(xcb_ewmh_connection_t)))) {
         printf("Fail to calloc memory for EWMH\n");
@@ -2845,13 +2833,6 @@ bool setup(int scrno) {
     unsigned int i;
     uint32_t event_mask_pointer[] = {
         XCB_EVENT_MASK_POINTER_MOTION, /* 不按住鼠标按钮的运动 */
-    };
-
-    unsigned int values[1] = {
-        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
-            | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
-            | XCB_EVENT_MASK_PROPERTY_CHANGE
-            | XCB_EVENT_MASK_BUTTON_PRESS
     };
 
     /* 获取 scrno 位置的 screen 对象 */
@@ -2932,9 +2913,12 @@ bool setup(int scrno) {
 
     xcb_xrm_database_free(db);
 
-    for (i = 0; i < NB_ATOMS; i++)
+    /* TODO: what is this? */
+    for (i = 0; i < NB_ATOMS; i++) {
         ATOM[i] = getatom(atomnames[i][0]);
+    }
 
+    /* 设置多显示器支持 */
     randrbase = setuprandr();
 
     if (!setupscreen())
@@ -2942,6 +2926,14 @@ bool setup(int scrno) {
 
     if (!setup_keyboard())
         return false;
+
+    // 设定 WM 关心的事件
+    unsigned int values[1] = {
+        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
+         | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY
+         | XCB_EVENT_MASK_PROPERTY_CHANGE
+         | XCB_EVENT_MASK_BUTTON_PRESS
+    };
 
     xcb_void_cookie_t cookie = xcb_change_window_attributes_checked(conn, screen->root, XCB_CW_EVENT_MASK, values);
     xcb_generic_error_t *error = xcb_request_check(conn, cookie);
@@ -2952,13 +2944,16 @@ bool setup(int scrno) {
         free(error);
         return false;
     }
+
     xcb_ewmh_set_current_desktop(ewmh, scrno, curws);
     xcb_ewmh_set_number_of_desktops(ewmh, scrno, WORKSPACES);
 
     grabkeys();
+
     /* set events */
-    for (i = 0; i < XCB_NO_OPERATION; i++)
+    for (i = 0; i < XCB_NO_OPERATION; i++) {
         events[i] = NULL;
+    }
 
     events[XCB_CONFIGURE_REQUEST] = configurerequest;
     events[XCB_DESTROY_NOTIFY] = destroynotify;
@@ -2976,12 +2971,12 @@ bool setup(int scrno) {
 }
 
 void twobwm_restart(void) {
-    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT,
-                        XCB_CURRENT_TIME);
+    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_CURRENT_TIME);
     xcb_ewmh_connection_wipe(ewmh);
 
-    if (ewmh)
+    if (ewmh) {
         free(ewmh);
+    }
 
     xcb_disconnect(conn);
     execvp(TWOBWM_PATH, NULL);
