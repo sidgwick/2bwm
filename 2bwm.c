@@ -181,32 +181,39 @@ void focusnext(const Arg *arg) {
     focusnext_helper(arg->i > 0);
 }
 
+
+/* TODO: 理解这个函数的用途 */
 void delfromworkspace(struct client *client) {
-    if (client->ws < 0)
+    if (client->ws < 0) {
         return;
+    }
+
     delitem(&wslist[client->ws], client->wsitem);
+
     client->wsitem = NULL;
     client->ws = -1;
 }
 
+/* 下面三个函数用于在 workspace 之间切换 */
 void changeworkspace(const Arg *arg) {
     changeworkspace_helper(arg->i);
 }
 
+/* 显示下一个 workspace, 如果是最后一个, 那么接下来转换到第一个 */
 void nextworkspace() {
-    curws == WORKSPACES - 1 ? changeworkspace_helper(0)
-                            : changeworkspace_helper(curws + 1);
+    curws == WORKSPACES - 1 ? changeworkspace_helper(0) : changeworkspace_helper(curws + 1);
 }
 
 void prevworkspace() {
-    curws > 0 ? changeworkspace_helper(curws - 1)
-              : changeworkspace_helper(WORKSPACES - 1);
+    curws > 0 ? changeworkspace_helper(curws - 1) : changeworkspace_helper(WORKSPACES - 1);
 }
 
+/* 退出 2bwm 窗口管理器程序 */
 void twobwm_exit() {
     exit(EXIT_SUCCESS);
 }
 
+/* 记录当前窗口的大小和位置(一般用于最大化,最小化之前) */
 void saveorigsize(struct client *client) {
     client->origsize.x = client->x;
     client->origsize.y = client->y;
@@ -214,6 +221,7 @@ void saveorigsize(struct client *client) {
     client->origsize.height = client->height;
 }
 
+/* 将鼠标位置放置在某个位置(和 CURSOR_POSITION 有关系) */
 void centerpointer(xcb_drawable_t win, struct client *cl) {
     int16_t cur_x, cur_y;
 
@@ -237,14 +245,14 @@ void centerpointer(xcb_drawable_t win, struct client *cl) {
     xcb_warp_pointer(conn, XCB_NONE, win, 0, 0, 0, 0, cur_x, cur_y);
 }
 
+/* TODO: to be continue */
 void updateclientlist(void) {
     uint32_t len, i;
     xcb_window_t *children;
     struct client *cl;
 
     /* can only be called after the first window has been spawn */
-    xcb_query_tree_reply_t *reply = xcb_query_tree_reply(conn,
-                                                         xcb_query_tree(conn, screen->root), 0);
+    xcb_query_tree_reply_t *reply = xcb_query_tree_reply(conn, xcb_query_tree(conn, screen->root), 0);
     xcb_delete_property(conn, screen->root, ewmh->_NET_CLIENT_LIST);
     xcb_delete_property(conn, screen->root, ewmh->_NET_CLIENT_LIST_STACKING);
 
@@ -258,8 +266,9 @@ void updateclientlist(void) {
 
     for (i = 0; i < len; i++) {
         cl = findclient(&children[i]);
-        if (cl != NULL)
+        if (cl != NULL) {
             addtoclientlist(cl->id);
+        }
     }
 
     free(reply);
@@ -279,11 +288,15 @@ xcb_screen_t *xcb_screen_of_display(xcb_connection_t *con, int screen) {
     return NULL;
 }
 
-void movepointerback(const int16_t startx, const int16_t starty,
-                     const struct client *client) {
-    if (startx > (0 - conf.borderwidth - 1) && startx < (client->width + conf.borderwidth + 1) && starty > (0 - conf.borderwidth - 1) && starty < (client->height + conf.borderwidth + 1))
-        xcb_warp_pointer(conn, XCB_NONE, client->id, 0, 0, 0, 0, startx,
-                         starty);
+void movepointerback(const int16_t startx, const int16_t starty, const struct client *client) {
+    int a = startx > (0 - conf.borderwidth - 1);
+    int b = startx < (client->width + conf.borderwidth + 1);
+    int c = starty > (0 - conf.borderwidth - 1);
+    int d = starty < (client->height + conf.borderwidth + 1);
+
+    if (a && b && c && d) {
+        xcb_warp_pointer(conn, XCB_NONE, client->id, 0, 0, 0, 0, startx, starty);
+    }
 }
 
 /* Set keyboard focus to follow mouse pointer. Then exit. We don't need to
@@ -291,12 +304,17 @@ void movepointerback(const int16_t startx, const int16_t starty,
  * server's Save Set and should be mapped automagically. */
 void cleanup(void) {
     free(ev);
-    if (monlist)
+
+    if (monlist) {
         delallitems(&monlist, NULL);
+    }
+
     struct item *curr, *wsitem;
     for (int i = 0; i < WORKSPACES; i++) {
-        if (!wslist[i])
+        if (!wslist[i]) {
             continue;
+        }
+
         curr = wslist[i];
         while (curr) {
             wsitem = curr;
@@ -304,18 +322,21 @@ void cleanup(void) {
             free(wsitem);
         }
     }
+
     if (winlist) {
         delallitems(&winlist, NULL);
     }
+
     if (ewmh != NULL) {
         xcb_ewmh_connection_wipe(ewmh);
         free(ewmh);
     }
+
     if (!conn) {
         return;
     }
-    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT,
-                        XCB_CURRENT_TIME);
+
+    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT, XCB_CURRENT_TIME);
     xcb_flush(conn);
     xcb_disconnect(conn);
 }
@@ -333,18 +354,30 @@ void arrangewindows(void) {
     }
 }
 
-uint32_t getwmdesktop(xcb_drawable_t win) {  // Get EWWM hint so we might know what workspace window win should be visible on.
+/* Get EWWM hint so we might know what workspace window win should be visible on. */
+uint32_t getwmdesktop(xcb_drawable_t win) {
     // Returns either workspace, NET_WM_FIXED if this window should be
     // visible on all workspaces or TWOBWM_NOWS if we didn't find any hints.
-    xcb_get_property_cookie_t cookie = xcb_get_property(conn, false, win, ewmh->_NET_WM_DESKTOP,
-                                                        XCB_GET_PROPERTY_TYPE_ANY, 0, sizeof(uint32_t));
-    xcb_get_property_reply_t *reply = xcb_get_property_reply(conn, cookie, NULL);
-    if (NULL == reply || 0 == xcb_get_property_value_length(reply)) { /* 0 if we didn't find it. */
-        if (NULL != reply) free(reply);
+    xcb_get_property_cookie_t cookie;
+    xcb_get_property_reply_t *reply;
+
+    cookie = xcb_get_property(conn, false, win, ewmh->_NET_WM_DESKTOP, XCB_GET_PROPERTY_TYPE_ANY, 0, sizeof(uint32_t));
+    reply = xcb_get_property_reply(conn, cookie, NULL);
+
+    /* 0 if we didn't find it. */
+    if (NULL == reply || 0 == xcb_get_property_value_length(reply)) {
+        if (NULL != reply) {
+            free(reply);
+        }
+
         return TWOBWM_NOWS;
     }
+
     uint32_t wsp = *(uint32_t *)xcb_get_property_value(reply);
-    if (NULL != reply) free(reply);
+    if (NULL != reply) {
+        free(reply);
+    }
+
     return wsp;
 }
 
@@ -354,26 +387,28 @@ bool get_unkil_state(xcb_drawable_t win) {
     xcb_get_property_reply_t *reply;
     uint8_t wsp;
 
-    cookie = xcb_get_property(conn, false, win, ewmh->_NET_WM_STATE_DEMANDS_ATTENTION,
-                              XCB_GET_PROPERTY_TYPE_ANY, 0, sizeof(uint8_t));
-
+    cookie = xcb_get_property(conn, false, win, ewmh->_NET_WM_STATE_DEMANDS_ATTENTION, XCB_GET_PROPERTY_TYPE_ANY, 0, sizeof(uint8_t));
     reply = xcb_get_property_reply(conn, cookie, NULL);
 
     if (reply == NULL || xcb_get_property_value_length(reply) == 0) {
-        if (reply != NULL)
+        if (reply != NULL) {
             free(reply);
+        }
+
         return false;
     }
 
     wsp = *(uint8_t *)xcb_get_property_value(reply);
 
-    if (reply != NULL)
+    if (reply != NULL) {
         free(reply);
+    }
 
-    if (wsp == 1)
+    if (wsp == 1) {
         return true;
-    else
+    } else {
         return false;
+    }
 }
 
 void check_name(struct client *client) {
@@ -383,33 +418,36 @@ void check_name(struct client *client) {
     unsigned int i;
     uint32_t values[1] = {0};
 
-    if (NULL == client)
+    if (NULL == client) {
         return;
+    }
 
     reply = xcb_get_property_reply(conn, xcb_get_property(conn, false, client->id, getatom(LOOK_INTO), XCB_GET_PROPERTY_TYPE_ANY, 0, 60), NULL);
 
     if (reply == NULL || xcb_get_property_value_length(reply) == 0) {
-        if (NULL != reply)
+        if (NULL != reply) {
             free(reply);
+        }
+
         return;
     }
 
     reply_len = xcb_get_property_value_length(reply);
     wm_name_window = malloc(sizeof(char *) * (reply_len + 1));
-    ;
     memcpy(wm_name_window, xcb_get_property_value(reply), reply_len);
     wm_name_window[reply_len] = '\0';
 
-    if (NULL != reply)
+    if (NULL != reply) {
         free(reply);
+    }
 
-    for (i = 0; i < sizeof(ignore_names) / sizeof(__typeof__(*ignore_names)); i++)
+    for (i = 0; i < sizeof(ignore_names) / sizeof(__typeof__(*ignore_names)); i++) {
         if (strstr(wm_name_window, ignore_names[i]) != NULL) {
             client->ignore_borders = true;
-            xcb_configure_window(conn, client->id,
-                                 XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
+            xcb_configure_window(conn, client->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
             break;
         }
+    }
 
     free(wm_name_window);
 }
@@ -418,11 +456,13 @@ void check_name(struct client *client) {
 void addtoworkspace(struct client *client, uint32_t ws) {
     struct item *item = additem(&wslist[ws]);
 
-    if (client == NULL)
+    if (client == NULL) {
         return;
+    }
 
-    if (NULL == item)
+    if (NULL == item) {
         return;
+    }
 
     /* Remember our place in the workspace window list. */
     client->wsitem = item;
@@ -430,11 +470,11 @@ void addtoworkspace(struct client *client, uint32_t ws) {
     item->data = client;
 
     /* Set window hint property so we can survive a crash. Like "fixed" */
-    if (!client->fixed)
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id,
-                            ewmh->_NET_WM_DESKTOP, XCB_ATOM_CARDINAL, 32, 1,
-                            &ws);
+    if (!client->fixed) {
+        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id, ewmh->_NET_WM_DESKTOP, XCB_ATOM_CARDINAL, 32, 1, &ws);
+    }
 }
+
 static void addtoclientlist(const xcb_drawable_t id) {
     xcb_change_property(conn, XCB_PROP_MODE_APPEND, screen->root, ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &id);
     xcb_change_property(conn, XCB_PROP_MODE_APPEND, screen->root, ewmh->_NET_CLIENT_LIST_STACKING, XCB_ATOM_WINDOW, 32, 1, &id);
@@ -445,8 +485,12 @@ void changeworkspace_helper(const uint32_t ws) {
     xcb_query_pointer_reply_t *pointer;
     struct client *client;
     struct item *item;
-    if (ws == curws)
+
+    /* 已经位于目标 workspace */
+    if (ws == curws) {
         return;
+    }
+
     xcb_ewmh_set_current_desktop(ewmh, 0, ws);
     /* Go through list of current ws.
      * Unmap everything that isn't fixed. */
@@ -503,15 +547,15 @@ void always_on_top() {
 void fixwindow(struct client *client) {
     uint32_t ws, ww;
 
-    if (NULL == client)
+    if (NULL == client) {
         return;
+    }
 
     if (client->fixed) {
         client->fixed = false;
         xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id, ewmh->_NET_WM_DESKTOP, XCB_ATOM_CARDINAL, 32, 1, &curws);
     } else {
-        /* Raise the window, if going to another desktop don't
-         * let the fixed window behind. */
+        /* Raise the window, if going to another desktop don't let the fixed window behind. */
         raisewindow(client->id);
         client->fixed = true;
         ww = NET_WM_FIXED;
@@ -521,10 +565,12 @@ void fixwindow(struct client *client) {
     setborders(client, true);
 }
 
-/* Make unkillable or killable a window client. If setcolour is */
+/* Make unkillable or killable a window client. If setcolour is
+ * 将窗口标记为不可杀, 使用 `MOD + q` 快捷键无法杀死窗口 */
 void unkillablewindow(struct client *client) {
-    if (NULL == client)
+    if (NULL == client) {
         return;
+    }
 
     if (client->unkillable) {
         client->unkillable = false;
@@ -532,9 +578,7 @@ void unkillablewindow(struct client *client) {
     } else {
         raisewindow(client->id);
         client->unkillable = true;
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id,
-                            ewmh->_NET_WM_STATE_DEMANDS_ATTENTION, XCB_ATOM_CARDINAL, 8, 1,
-                            &client->unkillable);
+        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, client->id, ewmh->_NET_WM_STATE_DEMANDS_ATTENTION, XCB_ATOM_CARDINAL, 8, 1, &client->unkillable);
     }
 
     setborders(client, true);
