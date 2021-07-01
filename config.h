@@ -22,12 +22,14 @@ static const uint8_t offsets[] = {0, 0, 0, 0};
 static const char *colors[] = {"#35586c", "#333333", "#7a8c5c", "#ff6666", "#cc9933", "#0d131a", "#000000"};
 /* if this is set to true the inner border and outer borders colors will be swapped */
 static const bool inverted_colors = true;
+
 ///---Cursor---///
 /* default position of the cursor:
  * correct values are:
  * TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MIDDLE
  * All these are relative to the current window. */
 #define CURSOR_POSITION MIDDLE
+
 ///---Borders---///
 /*0) Outer border size. If you put this negative it will be a square.
  *1) Full borderwidth    2) Magnet border size
@@ -70,7 +72,7 @@ static void toggle_sloppy(const Arg *arg) {
  * KeyRelease event, serial 40, synthetic NO, window 0x1e00001,
  *  root 0x98, subw 0x0, time 211120530, (128,73), root:(855,214),
  *  state 0x10, keycode 171 (keysym 0x1008ff17, XF86AudioNext), same_screen YES,
- *  XLookupString gives 0 bytes: 
+ *  XLookupString gives 0 bytes:
  *  XFilterEvent returns: False
  *
  *  The keycode here is keysym 0x1008ff17, so use  0x1008ff17
