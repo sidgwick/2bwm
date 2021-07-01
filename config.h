@@ -42,7 +42,7 @@ static const uint8_t borders[] = {3, 5, 5, 4};
 #define LOOK_INTO "WM_NAME"
 static const char *ignore_names[] = {"bar", "xclock"};
 ///--Menus and Programs---///
-static const char *menucmd[] = {"", NULL};
+static const char *menucmd[] = {"alacritty", NULL};
 ///--Custom foo---///
 static void halfandcentered(const Arg *arg) {
     Arg arg2 = {.i = TWOBWM_MAXHALF_VERTICAL_LEFT};

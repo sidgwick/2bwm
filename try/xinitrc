@@ -1,4 +1,4 @@
 ./2bwm &
-exec echo "HELLO" | lemonbar &
+exec bash ./try/bar.sh | lemonbar -p &
 exec plank &
 exec alacritty

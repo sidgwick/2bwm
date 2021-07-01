@@ -6,7 +6,7 @@
 
 # print current time and date in: HH:MM DD-MM-YY
 clock() {
-	date '+%H:%M %d-%m-%y'
+	date '+%Y-%m-%d %H:%M:%S'
 }
 
 volume() {
