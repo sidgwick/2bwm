@@ -184,7 +184,6 @@ void focusnext(const Arg *arg) {
     focusnext_helper(arg->i > 0);
 }
 
-
 /* TODO: 理解这个函数的用途 */
 void delfromworkspace(struct client *client) {
     if (client->ws < 0) {
@@ -2473,6 +2472,15 @@ struct client create_back_win(void) {
     return temp_win;
 }
 
+static void initmouse() {
+    xcb_cursor_t cursor = Create_Font_Cursor(conn, 68);
+
+    uint32_t mask = XCB_CW_CURSOR;
+    uint32_t value_list = cursor;
+    xcb_change_window_attributes(conn, screen->root, mask, &value_list);
+    xcb_free_cursor(conn, cursor);
+}
+
 /*
  * 处理鼠标运动 */
 static void mousemotion(const Arg *arg) {
@@ -2501,9 +2509,9 @@ static void mousemotion(const Arg *arg) {
     struct client example;
     raise_current_window();
 
-    if (arg->i == TWOBWM_MOVE)
+    if (arg->i == TWOBWM_MOVE) {
         cursor = Create_Font_Cursor(conn, 52); /* fleur */
-    else {
+    } else {
         cursor = Create_Font_Cursor(conn, 120); /* sizing */
         example = create_back_win();
         xcb_map_window(conn, example.id);
@@ -3033,6 +3041,8 @@ bool setup(int scrno) {
     xcb_ewmh_set_number_of_desktops(ewmh, scrno, WORKSPACES);
 
     grabkeys();
+
+    initmouse();
 
     /* set events */
     for (i = 0; i < XCB_NO_OPERATION; i++) {

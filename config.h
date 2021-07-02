@@ -94,7 +94,7 @@ static void toggle_sloppy(const Arg *arg) {
  */
 #define DESKTOPCHANGE(K, N)              \
     {MOD, K, changeworkspace, {.i = N}}, \
-        {MOD | SHIFT, K, sendtoworkspace, {.i = N}},
+    {MOD | SHIFT, K, sendtoworkspace, {.i = N}},
 static key keys[] = {
     /* modifier           key            function           argument */
     // Focus to next/previous window
@@ -203,15 +203,16 @@ static key keys[] = {
     {MOD, XK_s, toggle_sloppy, {.com = sloppy_switch_cmd}},
     // Change current workspace
     DESKTOPCHANGE(XK_1, 0)
-        DESKTOPCHANGE(XK_2, 1)
-            DESKTOPCHANGE(XK_3, 2)
-                DESKTOPCHANGE(XK_4, 3)
-                    DESKTOPCHANGE(XK_5, 4)
-                        DESKTOPCHANGE(XK_6, 5)
-                            DESKTOPCHANGE(XK_7, 6)
-                                DESKTOPCHANGE(XK_8, 7)
-                                    DESKTOPCHANGE(XK_9, 8)
-                                        DESKTOPCHANGE(XK_0, 9)};
+    DESKTOPCHANGE(XK_2, 1)
+    DESKTOPCHANGE(XK_3, 2)
+    DESKTOPCHANGE(XK_4, 3)
+    DESKTOPCHANGE(XK_5, 4)
+    DESKTOPCHANGE(XK_6, 5)
+    DESKTOPCHANGE(XK_7, 6)
+    DESKTOPCHANGE(XK_8, 7)
+    DESKTOPCHANGE(XK_9, 8)
+    DESKTOPCHANGE(XK_0, 9)
+};
 // the last argument makes it a root window only event
 static Button buttons[] = {
     {MOD, XCB_BUTTON_INDEX_1, mousemotion, {.i = TWOBWM_MOVE}, false},
@@ -220,4 +221,5 @@ static Button buttons[] = {
     {MOD | SHIFT, XCB_BUTTON_INDEX_1, changeworkspace, {.i = 0}, false},
     {MOD | SHIFT, XCB_BUTTON_INDEX_3, changeworkspace, {.i = 1}, false},
     {MOD | ALT, XCB_BUTTON_INDEX_1, changescreen, {.i = 1}, false},
-    {MOD | ALT, XCB_BUTTON_INDEX_3, changescreen, {.i = 0}, false}};
+    {MOD | ALT, XCB_BUTTON_INDEX_3, changescreen, {.i = 0}, false}
+};
