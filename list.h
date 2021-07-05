@@ -31,15 +31,17 @@ struct item *additem(struct item **mainlist) {  // Create space for a new item a
     struct item *item;
 
     if (NULL == (item = (struct item *)malloc(sizeof(struct item)))) return NULL;
+
     /* First in the list. */
-    if (NULL == *mainlist)
+    if (NULL == *mainlist) {
         item->prev = item->next = NULL;
-    else {
+    } else {
         /* Add to beginning of list. */
         item->next = *mainlist;
         item->next->prev = item;
         item->prev = NULL;
     }
+
     *mainlist = item;
     return item;
 }

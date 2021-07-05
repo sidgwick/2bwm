@@ -46,7 +46,10 @@ int randrbase = 0;                   // Beginning of RANDR extension events.
 static uint8_t curws = 0;            // Current workspace.
 struct client *focuswin = NULL;      // Current focus window.
 static xcb_drawable_t top_win = 0;   // Window always on top.
+
+// 所有的窗口都会被纳入 winlist 列表进行管理
 static struct item *winlist = NULL;  // Global list of all client windows.
+
 static struct item *monlist = NULL;  // List of all physical monitor outputs.
 static struct item *wslist[WORKSPACES];
 
@@ -245,7 +248,6 @@ void centerpointer(xcb_drawable_t win, struct client *cl) {
     xcb_warp_pointer(conn, XCB_NONE, win, 0, 0, 0, 0, cur_x, cur_y);
 }
 
-/* TODO: to be continue */
 void updateclientlist(void) {
     uint32_t len, i;
     xcb_window_t *children;
@@ -309,6 +311,8 @@ void cleanup(void) {
         delallitems(&monlist, NULL);
     }
 
+    /* 遍历全部的工作区, 并尝试释放工作区
+     * TODO: 弄清楚 wslist 含义 */
     struct item *curr, *wsitem;
     for (int i = 0; i < WORKSPACES; i++) {
         if (!wslist[i]) {
@@ -323,6 +327,7 @@ void cleanup(void) {
         }
     }
 
+    /* 清理窗口列表 */
     if (winlist) {
         delallitems(&winlist, NULL);
     }
@@ -345,16 +350,16 @@ void cleanup(void) {
 void arrangewindows(void) {
     struct client *client;
     struct item *item;
-    /* Go through all windows and resize them appropriately to
-     * fit the screen. */
 
+    /* Go through all windows and resize them appropriately to fit the screen. */
     for (item = winlist; item != NULL; item = item->next) {
         client = item->data;
         fitonscreen(client);
     }
 }
 
-/* Get EWWM hint so we might know what workspace window win should be visible on. */
+/* Get EWWM hint so we might know what workspace window win should be visible on.
+ * 获取窗口 EWMH 属性 */
 uint32_t getwmdesktop(xcb_drawable_t win) {
     // Returns either workspace, NET_WM_FIXED if this window should be
     // visible on all workspaces or TWOBWM_NOWS if we didn't find any hints.
@@ -381,7 +386,8 @@ uint32_t getwmdesktop(xcb_drawable_t win) {
     return wsp;
 }
 
-/* check if the window is unkillable, if yes return true */
+/* check if the window is unkillable, if yes return true
+ * 获取窗口是否是不可杀 */
 bool get_unkil_state(xcb_drawable_t win) {
     xcb_get_property_cookie_t cookie;
     xcb_get_property_reply_t *reply;
@@ -422,7 +428,9 @@ void check_name(struct client *client) {
         return;
     }
 
-    reply = xcb_get_property_reply(conn, xcb_get_property(conn, false, client->id, getatom(LOOK_INTO), XCB_GET_PROPERTY_TYPE_ANY, 0, 60), NULL);
+    xcb_atom_t atom = getatom(LOOK_INTO);
+    xcb_get_property_cookie_t cookie = xcb_get_property(conn, false, client->id, atom, XCB_GET_PROPERTY_TYPE_ANY, 0, 60);
+    reply = xcb_get_property_reply(conn, cookie, NULL);
 
     if (reply == NULL || xcb_get_property_value_length(reply) == 0) {
         if (NULL != reply) {
@@ -441,7 +449,10 @@ void check_name(struct client *client) {
         free(reply);
     }
 
-    for (i = 0; i < sizeof(ignore_names) / sizeof(__typeof__(*ignore_names)); i++) {
+    /* 窗体名称在 ignore_names 里面的, 不显示边框
+     * `*ignore_names` 写法, 是为了拿到数组里面第一个元素 */
+    unsigned int end = sizeof(ignore_names) / sizeof(__typeof__(*ignore_names));
+    for (i = 0; i < end; i++) {
         if (strstr(wm_name_window, ignore_names[i]) != NULL) {
             client->ignore_borders = true;
             xcb_configure_window(conn, client->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
@@ -454,6 +465,7 @@ void check_name(struct client *client) {
 
 /* Add a window, specified by client, to workspace ws. */
 void addtoworkspace(struct client *client, uint32_t ws) {
+    /* TODO: 函数并不检查 client 是否已经在 ws */
     struct item *item = additem(&wslist[ws]);
 
     if (client == NULL) {
@@ -475,6 +487,7 @@ void addtoworkspace(struct client *client, uint32_t ws) {
     }
 }
 
+/* 注意这里只是设置了 EWMH 标记, 没有将窗体纳入 winlist */
 static void addtoclientlist(const xcb_drawable_t id) {
     xcb_change_property(conn, XCB_PROP_MODE_APPEND, screen->root, ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &id);
     xcb_change_property(conn, XCB_PROP_MODE_APPEND, screen->root, ewmh->_NET_CLIENT_LIST_STACKING, XCB_ATOM_WINDOW, 32, 1, &id);
@@ -492,51 +505,66 @@ void changeworkspace_helper(const uint32_t ws) {
     }
 
     xcb_ewmh_set_current_desktop(ewmh, 0, ws);
-    /* Go through list of current ws.
-     * Unmap everything that isn't fixed. */
+
+    /* Go through list of current ws. Unmap everything that isn't fixed. */
     for (item = wslist[curws]; item != NULL;) {
         client = item->data;
         item = item->next;
         setborders(client, false);
+
         if (!client->fixed) {
-            xcb_unmap_window(conn, client->id);
+            xcb_unmap_window(conn, client->id); /* 隐藏窗口 */
         } else {
-            // correct order is delete first add later.
+            /* correct order is delete first add later.
+             * 先从当前工作区移除, 然后追加到目标工作区 */
             delfromworkspace(client);
             addtoworkspace(client, ws);
         }
     }
+
+    /* 将目标工作区的 "非 fix 且 非最小化" 窗体, 全部显示出来 */
     for (item = wslist[ws]; item != NULL; item = item->next) {
         client = item->data;
-        if (!client->fixed && !client->iconic)
+        if (!client->fixed && !client->iconic) {
             xcb_map_window(conn, client->id);
+        }
     }
+
+    /* 这一步是设置焦点窗口
+     * TODO: 请确认 - 切换了工作区之后, 在原来焦点窗口是非 fix 窗口的情况下, pointer 是不是就是 NULL 了? */
     curws = ws;
     pointer = xcb_query_pointer_reply(conn, xcb_query_pointer(conn, screen->root), 0);
-    if (pointer == NULL)
+    if (pointer == NULL) {
         setfocus(NULL);
-    else {
+    } else {
         setfocus(findclient(&pointer->child));
         free(pointer);
     }
 }
 
+/* 某个窗体始终位于最上层 */
 void always_on_top() {
     struct client *cl = NULL;
 
-    if (focuswin == NULL)
+    if (focuswin == NULL) {
         return;
+    }
 
     if (top_win != focuswin->id) {
-        if (0 != top_win) cl = findclient(&top_win);
+        if (0 != top_win) {
+            cl = findclient(&top_win);
+        }
 
         top_win = focuswin->id;
-        if (NULL != cl)
+        if (NULL != cl) {
+            /* 老窗体失焦 */
             setborders(cl, false);
+        }
 
         raisewindow(top_win);
-    } else
+    } else {
         top_win = 0;
+    }
 
     setborders(focuswin, true);
 }
@@ -584,9 +612,12 @@ void unkillablewindow(struct client *client) {
     setborders(client, true);
 }
 
+/* 将当前焦点窗口发送到工作区 arg->i */
 void sendtoworkspace(const Arg *arg) {
-    if (NULL == focuswin || focuswin->fixed || arg->i == curws)
+    if (NULL == focuswin || focuswin->fixed || arg->i == curws) {
         return;
+    }
+
     // correct order is delete first add later.
     delfromworkspace(focuswin);
     addtoworkspace(focuswin, arg->i);
@@ -594,19 +625,22 @@ void sendtoworkspace(const Arg *arg) {
     xcb_flush(conn);
 }
 
+/* 将当前焦点窗口发送到下一个工作区 */
 void sendtonextworkspace(const Arg *arg) {
     Arg arg2 = {.i = 0};
     Arg arg3 = {.i = curws + 1};
     curws == WORKSPACES - 1 ? sendtoworkspace(&arg2) : sendtoworkspace(&arg3);
 }
 
+/* 将当前焦点窗口发送到上一个工作区 */
 void sendtoprevworkspace(const Arg *arg) {
     Arg arg2 = {.i = curws - 1};
     Arg arg3 = {.i = WORKSPACES - 1};
     curws > 0 ? sendtoworkspace(&arg2) : sendtoworkspace(&arg3);
 }
 
-/* Get the pixel values of a named colour colstr. Returns pixel values. */
+/* Get the pixel values of a named colour colstr. Returns pixel values.
+ * RGB 颜色转换为 pixel 值 */
 uint32_t getcolor(const char *hex) {
     uint32_t rgb48;
     char strgroups[7] = {hex[1], hex[2], hex[3], hex[4], hex[5], hex[6], '\0'};
@@ -615,7 +649,8 @@ uint32_t getcolor(const char *hex) {
     return rgb48 | 0xff000000;
 }
 
-/* Forget everything about client client. */
+/* Forget everything about client client.
+ * 这个调用会导致 client 不再被 wm 管理 */
 void forgetclient(struct client *client) {
     uint32_t ws;
 
@@ -652,10 +687,7 @@ void forgetwin(xcb_window_t win) {
 }
 
 /* 这个函数用来获取 monitor 的坐标信息和宽高数据 */
-void getmonsize(int8_t with_offsets, int16_t *mon_x, int16_t *mon_y,
-                uint16_t *mon_width, uint16_t *mon_height,
-                const struct client *client) {
-
+void getmonsize(int8_t with_offsets, int16_t *mon_x, int16_t *mon_y, uint16_t *mon_width, uint16_t *mon_height, const struct client *client) {
     if (NULL == client || NULL == client->monitor) {
         /* Window isn't attached to any monitor, so we use
          * the root window size. */
@@ -677,6 +709,7 @@ void getmonsize(int8_t with_offsets, int16_t *mon_x, int16_t *mon_y,
     }
 }
 
+/* 此函数用于设置(并记录原始)边框 */
 void noborder(int16_t *temp, struct client *client, bool set_unset) {
     if (!client->ignore_borders) {
         return;
@@ -707,7 +740,8 @@ void maximize_helper(struct client *client, uint16_t mon_x, uint16_t mon_y, uint
     client->maxed = true;
 }
 
-/* Fit client on physical screen, moving and resizing as necessary. */
+/* Fit client on physical screen, moving and resizing as necessary.
+ * 主要是调整窗口大小 + 移动到屏幕显示区域 */
 void fitonscreen(struct client *client) {
     int16_t mon_x, mon_y, temp = 0;
     uint16_t mon_width, mon_height;
@@ -718,13 +752,14 @@ void fitonscreen(struct client *client) {
     getmonsize(1, &mon_x, &mon_y, &mon_width, &mon_height, client);
 
     if (client->maxed) {
+        /* 最大化的窗口, 给他非最大化 + 绘制边框 */
         client->maxed = false;
         setborders(client, false);
     } else {
         /* not maxed but look as if it was maxed, then make it maxed */
-        if (client->width == mon_width && client->height == mon_height)
+        if (client->width == mon_width && client->height == mon_height) {
             willresize = true;
-        else {
+        } else {
             getmonsize(0, &mon_x, &mon_y, &mon_width, &mon_height, client);
             if (client->width == mon_width && client->height == mon_height) {
                 willresize = true;
@@ -774,6 +809,7 @@ void fitonscreen(struct client *client) {
         willresize = true;
     }
 
+    /* 将原来的 border 大小存放在 temp */
     noborder(&temp, client, true);
     /* If the window is larger than our screen, just place it in
      * the corner and resize. */
@@ -803,9 +839,11 @@ void fitonscreen(struct client *client) {
         resize(client->id, client->width, client->height);
     }
 
+    /* 恢复原来的 border */
     noborder(&temp, client, false);
 }
 
+/* TODO: TO BE CONTINUE */
 /* Set position, geometry and attributes of a new window and show it on
  * the screen.*/
 void newwin(xcb_generic_event_t *ev) {
