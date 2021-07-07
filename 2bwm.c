@@ -842,7 +842,6 @@ void fitonscreen(struct client *client) {
     noborder(&temp, client, false);
 }
 
-/* TODO: TO BE CONTINUE */
 /* Set position, geometry and attributes of a new window and show it on
  * the screen.*/
 void newwin(xcb_generic_event_t *ev) {
@@ -850,16 +849,17 @@ void newwin(xcb_generic_event_t *ev) {
     struct client *client;
     long data[] = {
         XCB_ICCCM_WM_STATE_NORMAL,
-        XCB_NONE};
+        XCB_NONE
+    };
 
     /* The window is trying to map itself on the current workspace,
-     * but since it's unmapped it probably belongs on another workspace.*/
+     * but since it's unmapped it probably belongs on another workspace. */
     if (NULL != findclient(&e->window)) {
         return;
     }
 
+    /* 设定窗口, 并创建与之对应的 client 对象 */
     client = setupwin(e->window);
-
     if (NULL == client) {
         return;
     }
@@ -867,7 +867,8 @@ void newwin(xcb_generic_event_t *ev) {
     /* Add this window to the current workspace. */
     addtoworkspace(client, curws);
 
-    /* If we don't have specific coord map it where the pointer is.*/
+    /* If we don't have specific coord map it where the pointer is.
+     * 如果新窗口没有指定鼠标位置, 那么当前鼠标位置就是新窗口的中心位置 */
     if (!client->usercoord) {
         if (!getpointer(&screen->root, &client->x, &client->y)) {
             client->x = client->y = 0;
@@ -888,6 +889,7 @@ void newwin(xcb_generic_event_t *ev) {
         }
     }
 
+    /* 调整并移动窗口大小 */
     fitonscreen(client);
 
     /* Show window on screen. */
@@ -910,26 +912,32 @@ struct client *setupwin(xcb_window_t win) {
     unsigned int i;
     uint8_t result;
     uint32_t values[2], ws;
-    xcb_atom_t a;
     xcb_size_hints_t hints;
     xcb_ewmh_get_atoms_reply_t win_type;
     xcb_window_t prop;
     struct item *item;
     struct client *client;
-    xcb_get_property_cookie_t cookie;
 
+    xcb_get_property_cookie_t cookie;
     xcb_get_property_cookie_t _type = xcb_ewmh_get_wm_window_type(ewmh, win);
     if (xcb_ewmh_get_wm_window_type_reply(ewmh, _type, &win_type, NULL) == 1) {
         for (i = 0; i < win_type.atoms_len; i++) {
-            a = win_type.atoms[i];
-            if (a == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR || a == ewmh->_NET_WM_WINDOW_TYPE_DOCK || a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP) {
+            xcb_atom_t a = win_type.atoms[i];
+            int is_toobar = a == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR;
+            int is_dock = a == ewmh->_NET_WM_WINDOW_TYPE_DOCK;
+            int is_desktop = a == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP;
+
+            if (is_toobar || is_dock || is_desktop) {
+                /* 如果是上面某种类型的窗体, 则将 win 显示出来 */
                 xcb_map_window(conn, win);
                 return NULL;
             }
         }
+
         xcb_ewmh_get_atoms_reply_wipe(&win_type);
     }
 
+    /* 注意看事件监听, 只监听了 ENTER_WINDOW 这个事件 */
     values[0] = XCB_EVENT_MASK_ENTER_WINDOW;
     xcb_change_window_attributes(conn, win, XCB_CW_BACK_PIXEL, &conf.empty_col);
     xcb_change_window_attributes_checked(conn, win, XCB_CW_EVENT_MASK, values);
@@ -939,25 +947,27 @@ struct client *setupwin(xcb_window_t win) {
 
     /* Remember window and store a few things about it. */
     item = additem(&winlist);
-
     if (NULL == item) {
         return NULL;
     }
 
     client = malloc(sizeof(struct client));
-
     if (NULL == client) {
         return NULL;
     }
 
     item->data = client;
+
+    /* 下面初始化 client 的数据 */
     client->id = win;
-    client->x = client->y = client->width = client->height = client->min_width = client->min_height = client->base_width = client->base_height = 0;
+    client->x = client->y = client->width = client->height = 0;
+    client->min_width = client->min_height = client->base_width = client->base_height = 0;
 
     client->max_width = screen->width_in_pixels;
     client->max_height = screen->height_in_pixels;
     client->width_inc = client->height_inc = 1;
-    client->usercoord = client->vertmaxed = client->hormaxed = client->maxed = client->unkillable = client->fixed = client->ignore_borders = client->iconic = false;
+    client->usercoord = client->vertmaxed = client->hormaxed = client->maxed = false;
+    client->unkillable = client->fixed = client->ignore_borders = client->iconic = false;
 
     client->monitor = NULL;
     client->winitem = item;
@@ -1012,13 +1022,15 @@ struct client *setupwin(xcb_window_t win) {
         }
     }
 
+    /* 特定名字的窗口, 不要边框 */
     check_name(client);
+
     return client;
 }
 
+/* TODO: TO BE CONTINUE */
 /* wrapper to get xcb keycodes from keysymbol */
-xcb_keycode_t *
-xcb_get_keycodes(xcb_keysym_t keysym) {
+xcb_keycode_t *xcb_get_keycodes(xcb_keysym_t keysym) {
     xcb_key_symbols_t *keysyms;
     xcb_keycode_t *keycode;
 
@@ -1368,24 +1380,23 @@ findclones(xcb_randr_output_t id, const int16_t x, const int16_t y) {
     return NULL;
 }
 
-struct monitor *
-findmonbycoord(const int16_t x, const int16_t y) {
+/* 通过坐标, 获取显示器 */
+struct monitor *findmonbycoord(const int16_t x, const int16_t y) {
     struct monitor *mon;
     struct item *item;
 
     for (item = monlist; item != NULL; item = item->next) {
         mon = item->data;
 
-        if (x >= mon->x && x <= mon->x + mon->width && y >= mon->y && y <= mon->y + mon->height)
+        if (x >= mon->x && x <= mon->x + mon->width && y >= mon->y && y <= mon->y + mon->height) {
             return mon;
+        }
     }
 
     return NULL;
 }
 
-struct monitor *
-addmonitor(xcb_randr_output_t id, const int16_t x, const int16_t y,
-           const uint16_t width, const uint16_t height) {
+struct monitor *addmonitor(xcb_randr_output_t id, const int16_t x, const int16_t y, const uint16_t width, const uint16_t height) {
     struct item *item;
     struct monitor *mon = malloc(sizeof(struct monitor));
 
@@ -1524,7 +1535,8 @@ void setunfocus(void) {
     setborders(focuswin, false);
 }
 
-/* Find client with client->id win in global window list or NULL. */
+/* Find client with client->id win in global window list or NULL.
+ * 在 winlist 里面找到 win 窗口的信息 */
 struct client *findclient(const xcb_drawable_t *win) {
     struct client *client;
     struct item *item;
@@ -2097,17 +2109,19 @@ bool getpointer(const xcb_drawable_t *win, int16_t *x, int16_t *y) {
     return true;
 }
 
+/* 获取窗体几何信息, 坐标/长宽/深度 */
 bool getgeom(const xcb_drawable_t *win, int16_t *x, int16_t *y, uint16_t *width, uint16_t *height, uint8_t *depth) {
     xcb_get_geometry_reply_t *geom = xcb_get_geometry_reply(conn, xcb_get_geometry(conn, *win), NULL);
 
-    if (NULL == geom)
+    if (NULL == geom) {
         return false;
+    }
 
     *x = geom->x;
     *y = geom->y;
     *width = geom->width;
     *height = geom->height;
-    *depth = geom->depth;
+    *depth = geom->depth; /* TODO: X 系统里面的 depth 是啥意思? */
 
     free(geom);
     return true;

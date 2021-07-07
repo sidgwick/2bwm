@@ -26,8 +26,9 @@ void movetohead(struct item **mainlist, struct item *item) {
     *mainlist = item;
 }
 
-struct item *additem(struct item **mainlist) {  // Create space for a new item and add it to the head of mainlist.
-                                                // Returns item or NULL if out of memory.
+// Create space for a new item and add it to the head of mainlist.
+// Returns item or NULL if out of memory.
+struct item *additem(struct item **mainlist) {
     struct item *item;
 
     if (NULL == (item = (struct item *)malloc(sizeof(struct item)))) return NULL;
