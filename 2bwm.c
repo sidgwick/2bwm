@@ -1028,7 +1028,6 @@ struct client *setupwin(xcb_window_t win) {
     return client;
 }
 
-/* TODO: TO BE CONTINUE */
 /* wrapper to get xcb keycodes from keysymbol */
 xcb_keycode_t *xcb_get_keycodes(xcb_keysym_t keysym) {
     xcb_key_symbols_t *keysyms;
@@ -1052,7 +1051,8 @@ void grabkeys(void) {
         0,
         XCB_MOD_MASK_LOCK,
         numlockmask,
-        numlockmask | XCB_MOD_MASK_LOCK};
+        numlockmask | XCB_MOD_MASK_LOCK
+    };
 
     xcb_ungrab_key(conn, XCB_GRAB_ANY, screen->root, XCB_MOD_MASK_ANY);
 
@@ -1078,19 +1078,16 @@ bool setup_keyboard(void) {
     unsigned int i, j, n;
 
     reply = xcb_get_modifier_mapping_reply(conn, xcb_get_modifier_mapping_unchecked(conn), NULL);
-
     if (!reply) {
         return false;
     }
 
     modmap = xcb_get_modifier_mapping_keycodes(reply);
-
     if (!modmap) {
         return false;
     }
 
     numlock = xcb_get_keycodes(XK_Num_Lock);
-
     for (i = 4; i < 8; i++) {
         for (j = 0; j < reply->keycodes_per_modifier; j++) {
             xcb_keycode_t keycode = modmap[i * reply->keycodes_per_modifier + j];
@@ -1128,8 +1125,9 @@ bool setupscreen(void) {
     /* Get all children. */
     xcb_query_tree_reply_t *reply = xcb_query_tree_reply(conn, xcb_query_tree(conn, screen->root), 0);
 
-    if (NULL == reply)
+    if (NULL == reply) {
         return false;
+    }
 
     len = xcb_query_tree_children_length(reply);
     children = xcb_query_tree_children(reply);
@@ -1152,9 +1150,10 @@ bool setupscreen(void) {
             if (NULL != client) {
                 /* Find the physical output this window will be on if
                  * RANDR is active. */
-                if (-1 != randrbase)
-                    client->monitor = findmonbycoord(client->x,
-                                                     client->y);
+                if (-1 != randrbase) {
+                    client->monitor = findmonbycoord(client->x, client->y);
+                }
+
                 /* Fit window on physical screen. */
                 fitonscreen(client);
                 setborders(client, false);
@@ -1163,8 +1162,9 @@ bool setupscreen(void) {
                  * as a WM hint. */
                 ws = getwmdesktop(children[i]);
 
-                if (get_unkil_state(children[i]))
+                if (get_unkil_state(children[i])) {
                     unkillablewindow(client);
+                }
 
                 if (ws == NET_WM_FIXED) {
                     /* Add to current workspace. */
@@ -1174,11 +1174,11 @@ bool setupscreen(void) {
                 } else {
                     if (TWOBWM_NOWS != ws && ws < WORKSPACES) {
                         addtoworkspace(client, ws);
-                        if (ws != curws)
+                        if (ws != curws) {
                             /* If it's not our current works
                              * pace, hide it. */
-                            xcb_unmap_window(conn,
-                                             client->id);
+                            xcb_unmap_window(conn, client->id);
+                        }
                     } else {
                         addtoworkspace(client, curws);
                         addtoclientlist(children[i]);
@@ -1187,8 +1187,9 @@ bool setupscreen(void) {
             }
         }
 
-        if (NULL != attr)
+        if (NULL != attr) {
             free(attr);
+        }
     }
 
     changeworkspace_helper(0);
@@ -1213,7 +1214,10 @@ int setuprandr(void) {
     }
 
     base = extension->first_event;
-    uint16_t enable = XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE | XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE | XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY;
+    uint16_t enable = XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE |
+            XCB_RANDR_NOTIFY_MASK_OUTPUT_CHANGE |
+            XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE |
+            XCB_RANDR_NOTIFY_MASK_OUTPUT_PROPERTY;
     xcb_randr_select_input(conn, screen->root, enable);
 
     return base;
